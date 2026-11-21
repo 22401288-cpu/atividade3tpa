@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\EventoFormRequest;
+use App\Http\Requests\StorePerguntaRequest;
+use App\Models\Evento;
+use App\Models\Pergunta;
+use Illuminate\Support\Facades\Auth;
+
+class EventoController extends Controller
+{
+    public function index()
+    {
+        return view('eventos.index', [
+            'eventos' => Evento::all(),
+        ]);
+    }
+
+    public function show($id)
+    {
+        $evento = Evento::findOrFail($id);
+
+        $perguntas = Pergunta::query()
+            ->where('evento_id', $id)
+            ->where('is_public', true)
+            ->with('user')
+            ->latest()
+            ->paginate(10);
+
+        return view('eventos.show', [
+            'evento' => $evento,
+            'perguntas' => $perguntas,
+        ]);
+    }
+
+    public function storePergunta(StorePerguntaRequest $request, $id)
+    {
+        $evento = Evento::findOrFail($id);
+
+        Pergunta::create([
+            'evento_id' => $evento->id,
+            'user_id' => Auth::user()->id,
+            'texto' => $request->input('texto'),
+            'status' => 'pendente',
+        ]);
+
+        return redirect()
+            ->route('eventos.show', $evento->id)
+            ->with('sucesso', 'Sua pergunta foi enviada com sucesso!');
+    }
+
+    public function create()
+    {
+        return view('eventos.create');
+    }
+
+    public function store(EventoFormRequest $request)
+    {
+        $novoEvento = $request->user()
+            ->eventos()
+            ->create($request->validated());
+
+        return redirect()->route('eventos.show', $novoEvento->id);
+    }
+}
